@@ -160,6 +160,14 @@ def make_request(url: str, config: Config) -> requests.models.Response:
     Returns:
         requests.models.Response: A response from a request
     """
+    response = requests.get(
+        url=url,
+        headers=config.get_headers(),
+        timeout=config.get_timeout(),
+        verify=config.get_verify_certificate()
+        )
+
+    return response
 
 
 class Crawler:
@@ -178,7 +186,7 @@ class Crawler:
             config (Config): Configuration
         """
         self._config = config
-        self.urls = config.get_seed_urls()
+        self.urls = []
 
     def _extract_url(self, article_bs: Tag) -> str:
         """
@@ -195,8 +203,9 @@ class Crawler:
         """
         Find articles.
         """
-        for url in self.urls:
-
+        # for seed_url in self._config.get_seed_urls():
+            # tag_formated = Tag(seed_url)
+            # url = self._extract_url("somedata")
 
     def get_search_urls(self) -> list:
         """
@@ -205,8 +214,7 @@ class Crawler:
         Returns:
             list: seed_urls param
         """
-        
-
+        return self._config.get_seed_urls()
 
 # 10
 
@@ -249,9 +257,10 @@ class HTMLParser:
             article_id (int): Article id
             config (Config): Configuration
         """
-        self.full_url = full_url
-        self.article_id = article_id
-        self._config = config
+        # self.full_url = full_url
+        # self.article_id = article_id
+        # self.article = Article(full_url, article_id)
+        # self._config = config
 
     def _fill_article_with_text(self, article_soup: BeautifulSoup) -> None:
         """
@@ -309,11 +318,14 @@ def main() -> None:
     """
     Entrypoint for scraper module.
     """
-    path = pathlib.Path(r"https://gameofthrones.fan-base.ru/category/geografija-igra-prestolov/")
+    url = r"https://gameofthrones.fan-base.ru/category/geografija-igra-prestolov/"
     assets_path = r"C:\Users\artem\hse\2025-2-level-ctlr\lab_5_scraper\assets"
     config = Config(pathlib.Path(r"C:\Users\artem\hse\2025-2-level-ctlr\lab_5_scraper\scraper_config.json"))
-    print(config._extract_config_content())
-    prepare_environment(assets_path)
+    # print(config._extract_config_content())
+    # prepare_environment(assets_path)
+    # HTMLParser(path._str,2,config)
+    response = make_request(url, config)
+    print(response.ok)
 
 
 if __name__ == "__main__":
