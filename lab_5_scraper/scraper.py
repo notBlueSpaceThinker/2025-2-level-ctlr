@@ -257,10 +257,10 @@ class HTMLParser:
             article_id (int): Article id
             config (Config): Configuration
         """
-        # self.full_url = full_url
-        # self.article_id = article_id
-        # self.article = Article(full_url, article_id)
-        # self._config = config
+        self.full_url = full_url
+        self.article_id = article_id
+        self.article = Article(full_url, article_id)
+        self._config = config
 
     def _fill_article_with_text(self, article_soup: BeautifulSoup) -> None:
         """
@@ -269,6 +269,27 @@ class HTMLParser:
         Args:
             article_soup (bs4.BeautifulSoup): BeautifulSoup instance
         """
+        articles = article_soup.find_all("article", class_="type-post")
+        if not articles:
+            return None
+
+        all_text = []
+        for article in articles:
+            tags = article.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'blockquote'])
+            if not tags:
+                continue
+
+            for tag in tags:
+                if tag.name == 'p' and 'has-medium-font-size' in tag.get('class', []):
+                    continue
+
+                text = tag.get_text(strip=True)
+                if not text:
+                    continue
+                all_text.append(f"<{tag.name}>{text}</{tag.name}>")
+
+        self.article.text = "\n".join(all_text)
+
 
     def _fill_article_with_meta_information(self, article_soup: BeautifulSoup) -> None:
         """
@@ -296,6 +317,15 @@ class HTMLParser:
         Returns:
             Article | bool: Article instance, False in case of request error
         """
+        response = make_request(self.full_url, self._config)
+        if not response and not response.ok:
+            return False
+
+        soup = BeautifulSoup(response.text, features="lxml")
+        self._fill_article_with_meta_information(soup)
+        self._fill_article_with_text(soup)
+
+        return self.article
 
 
 def prepare_environment(base_path: pathlib.Path | str) -> None:
@@ -318,14 +348,21 @@ def main() -> None:
     """
     Entrypoint for scraper module.
     """
-    url = r"https://gameofthrones.fan-base.ru/category/geografija-igra-prestolov/"
+    url_1 = r"https://gameofthrones.fan-base.ru/category/geografija-igra-prestolov/"
+    url_2 = r"https://gameofthrones.fan-base.ru/geografija-igra-prestolov/oleni-roga/"
+    url_3 = r"https://gameofthrones.fan-base.ru/dom-drakona/laris-strong/"
+
     assets_path = r"C:\Users\artem\hse\2025-2-level-ctlr\lab_5_scraper\assets"
     config = Config(pathlib.Path(r"C:\Users\artem\hse\2025-2-level-ctlr\lab_5_scraper\scraper_config.json"))
     # print(config._extract_config_content())
     # prepare_environment(assets_path)
-    # HTMLParser(path._str,2,config)
-    response = make_request(url, config)
-    print(response.ok)
+    parser = HTMLParser(url_1, 2, config)
+    parser.parse()
+
+    # response = make_request(url_3, config)
+    # print(response.ok)
+    # soup = BeautifulSoup(response.text, features="lxml")
+    # all_p = soup.find_all("p")
 
 
 if __name__ == "__main__":
