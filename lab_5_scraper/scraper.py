@@ -6,6 +6,7 @@ Crawler implementation.
 import datetime
 import json
 import pathlib
+import shutil
 
 import requests
 import regex as re
@@ -13,6 +14,8 @@ from bs4 import BeautifulSoup, Tag
 
 from core_utils.article.article import Article
 from core_utils.config_dto import ConfigDTO
+from core_utils.article.io import to_raw
+from core_utils.constants import ASSETS_PATH
 
 class IncorrectSeedURLError(Exception):
     pass
@@ -339,9 +342,9 @@ def prepare_environment(base_path: pathlib.Path | str) -> None:
         base_path = pathlib.Path(base_path)
 
     if pathlib.Path.exists(base_path):
-        base_path.rmdir()
+        shutil.rmtree(base_path)
 
-    base_path.mkdir()
+    base_path.mkdir(parents=True)
 
 
 def main() -> None:
@@ -352,10 +355,10 @@ def main() -> None:
     url_2 = r"https://gameofthrones.fan-base.ru/geografija-igra-prestolov/oleni-roga/"
     url_3 = r"https://gameofthrones.fan-base.ru/dom-drakona/laris-strong/"
 
-    assets_path = r"C:\Users\artem\hse\2025-2-level-ctlr\lab_5_scraper\assets"
+    # assets_path = r"C:\Users\artem\hse\2025-2-level-ctlr\lab_5_scraper\assets"
     config = Config(pathlib.Path(r"C:\Users\artem\hse\2025-2-level-ctlr\lab_5_scraper\scraper_config.json"))
     # print(config._extract_config_content())
-    # prepare_environment(assets_path)
+    prepare_environment(ASSETS_PATH)
     parser = HTMLParser(url_1, 2, config)
     parser.parse()
 
