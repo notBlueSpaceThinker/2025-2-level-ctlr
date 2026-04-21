@@ -201,14 +201,38 @@ class Crawler:
         Returns:
             str: Url from HTML
         """
+        url =  article_bs.get("href")
+        if not isinstance(url, str) or not url:
+            return ""
+        return url
 
     def find_articles(self) -> None:
         """
         Find articles.
         """
-        # for seed_url in self._config.get_seed_urls():
-            # tag_formated = Tag(seed_url)
-            # url = self._extract_url("somedata")
+        for seed_url in self._config.get_seed_urls():
+            response = make_request(seed_url, self._config)
+            if not response.ok:
+                continue
+
+            base_url = re.sub(r"(https?://[^/]+).*", r"\1", seed_url)
+
+            soup = BeautifulSoup(response.text, features="lxml")
+            tags = soup.find_all(["a"])
+            if not tags:
+                continue
+
+            for tag in tags:
+                if not isinstance(tag, Tag):
+                    continue
+
+                extracted_url = self._extract_url(tag)
+                if not extracted_url:
+                    continue
+
+                if not re.match("https?://(www.)?", extracted_url):
+                    extracted_url = base_url + extracted_url
+                self.urls.append(extracted_url)
 
     def get_search_urls(self) -> list:
         """
@@ -278,12 +302,12 @@ class HTMLParser:
 
         all_text = []
         for article in articles:
-            tags = article.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'blockquote'])
+            tags = article.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "blockquote"])
             if not tags:
                 continue
 
             for tag in tags:
-                if tag.name == 'p' and 'has-medium-font-size' in tag.get('class', []):
+                if tag.name == "p" and "has-medium-font-size" in tag.get("class", []):
                     continue
 
                 text = tag.get_text(strip=True)
@@ -321,7 +345,7 @@ class HTMLParser:
             Article | bool: Article instance, False in case of request error
         """
         response = make_request(self.full_url, self._config)
-        if not response and not response.ok:
+        if not response.ok:
             return False
 
         soup = BeautifulSoup(response.text, features="lxml")
@@ -351,16 +375,21 @@ def main() -> None:
     """
     Entrypoint for scraper module.
     """
+    prepare_environment(ASSETS_PATH)
     url_1 = r"https://gameofthrones.fan-base.ru/category/geografija-igra-prestolov/"
     url_2 = r"https://gameofthrones.fan-base.ru/geografija-igra-prestolov/oleni-roga/"
     url_3 = r"https://gameofthrones.fan-base.ru/dom-drakona/laris-strong/"
 
-    # assets_path = r"C:\Users\artem\hse\2025-2-level-ctlr\lab_5_scraper\assets"
     config = Config(pathlib.Path(r"C:\Users\artem\hse\2025-2-level-ctlr\lab_5_scraper\scraper_config.json"))
     # print(config._extract_config_content())
-    prepare_environment(ASSETS_PATH)
-    parser = HTMLParser(url_1, 2, config)
-    parser.parse()
+    crawler = Crawler(config)
+    crawler.find_articles()
+    for id, article_url in enumerate(crawler.urls):
+        parser = HTMLParser(article_url, id, config)
+        parsed_article = parser.parse()
+        if isinstance(parsed_article, Article):
+            to_raw(parsed_article)
+  
 
     # response = make_request(url_3, config)
     # print(response.ok)
