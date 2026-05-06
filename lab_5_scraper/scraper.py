@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup, Tag
 from core_utils.article.article import Article
 from core_utils.article.io import to_raw
 from core_utils.config_dto import ConfigDTO
-from core_utils.constants import ASSETS_PATH
+from core_utils.constants import ASSETS_PATH, CRAWLER_CONFIG_PATH
 
 
 class IncorrectSeedURLError(Exception):
@@ -410,22 +410,22 @@ def main() -> None:
     Entrypoint for scraper module.
     """
     prepare_environment(ASSETS_PATH)
-    url_1 = r"https://gameofthrones.fan-base.ru/category/geografija-igra-prestolov/"
+    # url_1 = r"https://gameofthrones.fan-base.ru/category/geografija-igra-prestolov/"
     url_2 = r"https://gameofthrones.fan-base.ru/geografija-igra-prestolov/oleni-roga/"
-    url_3 = r"https://gameofthrones.fan-base.ru/dom-drakona/laris-strong/"
+    # url_3 = r"https://gameofthrones.fan-base.ru/dom-drakona/laris-strong/"
 
-    config = Config(pathlib.Path(r"C:\Users\artem\hse\2025-2-level-ctlr\lab_5_scraper\scraper_config.json"))
+    config = Config(CRAWLER_CONFIG_PATH)
     # print(config._extract_config_content())
-    crawler = Crawler(config)
-    crawler.find_articles()
+    # crawler = Crawler(config)
+    # crawler.find_articles()
     # for id, article_url in enumerate(crawler.urls):
     #     parser = HTMLParser(article_url, id, config)
     #     parsed_article = parser.parse()
     #     if isinstance(parsed_article, Article):
     #         to_raw(parsed_article)
-  
 
-    response = make_request(url_3, config)
+
+    response = make_request(url_2, config)
     print(response.ok)
     # soup = BeautifulSoup(response.text, features="lxml")
     # all_p = soup.find_all("p")
