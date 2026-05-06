@@ -243,6 +243,7 @@ class Crawler:
                 continue
 
             soup = BeautifulSoup(response.text, features="lxml")
+            parsed_seed = urlparse(seed_url)
             tags = soup.find_all(["a"])
             if not tags:
                 continue
@@ -258,14 +259,18 @@ class Crawler:
                 if not re.match("https?://(www.)?", extracted_url):
                     extracted_url = urlunparse(
                         (
-                            urlparse(seed_url).scheme,
-                            urlparse(seed_url).netloc,
+                            parsed_seed.scheme,
+                            parsed_seed.netloc,
                             extracted_url,
                             None,
                             None,
                             None
                         )
                     )
+                else:
+                    if parsed_seed.netloc != urlparse(extracted_url).netloc:
+                        continue
+
                 if extracted_url not in self.urls:
                     self.urls.append(extracted_url)
 
@@ -416,13 +421,13 @@ def main() -> None:
 
     config = Config(CRAWLER_CONFIG_PATH)
     # print(config._extract_config_content())
-    # crawler = Crawler(config)
-    # crawler.find_articles()
-    # for id, article_url in enumerate(crawler.urls):
-    #     parser = HTMLParser(article_url, id, config)
-    #     parsed_article = parser.parse()
-    #     if isinstance(parsed_article, Article):
-    #         to_raw(parsed_article)
+    crawler = Crawler(config)
+    crawler.find_articles()
+    for id, article_url in enumerate(crawler.urls):
+        parser = HTMLParser(article_url, id, config)
+        parsed_article = parser.parse()
+        if isinstance(parsed_article, Article):
+            to_raw(parsed_article)
 
 
     response = make_request(url_2, config)
