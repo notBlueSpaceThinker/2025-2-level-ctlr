@@ -249,6 +249,9 @@ class Crawler:
                 continue
 
             for tag in tags:
+                if len(self.urls) > self._config.get_num_articles():
+                    return
+
                 if not isinstance(tag, Tag):
                     continue
 
@@ -365,6 +368,27 @@ class HTMLParser:
         Args:
             article_soup (bs4.BeautifulSoup): BeautifulSoup instance
         """
+        "id, title, author."
+        self.article.article_id = self.article_id
+
+        title = article_soup.find("title")
+        if title and (title_content := title.get_text()):
+            self.article.title = title_content
+
+        author_tags = article_soup.find_all("meta", {"name": "author"})
+        author_list = []
+        for tag in author_tags:
+            if not isinstance(tag, Tag):
+                continue
+            if (author_content := tag.get("content")):
+                author_list.append(author_content)
+        self.article.author = author_list if author_list else ["NOT FOUND"]
+
+        date = article_soup.find("meta", {"property": "article:published_time"})
+        if isinstance(date, Tag):
+            if date and (date_content := date.get("content")):
+                self.article.date = self.unify_date_format(str(date_content))
+
 
     def unify_date_format(self, date_str: str) -> datetime.datetime:
         """
@@ -376,6 +400,7 @@ class HTMLParser:
         Returns:
             datetime.datetime: Datetime object
         """
+        return datetime.datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S%z")
 
     def parse(self) -> Article | bool:
         """
@@ -421,13 +446,16 @@ def main() -> None:
 
     config = Config(CRAWLER_CONFIG_PATH)
     # print(config._extract_config_content())
-    crawler = Crawler(config)
-    crawler.find_articles()
-    for id, article_url in enumerate(crawler.urls):
-        parser = HTMLParser(article_url, id, config)
-        parsed_article = parser.parse()
-        if isinstance(parsed_article, Article):
-            to_raw(parsed_article)
+    # crawler = Crawler(config)
+    # crawler.find_articles()
+    # print(len(set(crawler.urls)), len(crawler.urls))
+    # for id, article_url in enumerate(crawler.urls):
+    #     parser = HTMLParser(article_url, id, config)
+    #     parsed_article = parser.parse()
+    #     if isinstance(parsed_article, Article):
+    #         to_raw(parsed_article)
+    parser = HTMLParser(url_2, 1, config)
+    parsed_article = parser.parse()
 
 
     response = make_request(url_2, config)
