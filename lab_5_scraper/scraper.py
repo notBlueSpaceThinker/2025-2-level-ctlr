@@ -22,25 +22,39 @@ from core_utils.constants import ASSETS_PATH, CRAWLER_CONFIG_PATH
 
 
 class IncorrectSeedURLError(Exception):
-    """Raised when seed URL does not match standard pattern 'https?://(www.)?'"""
+    """
+    Raised when seed URL does not match standard pattern 'https?://(www.)?'
+    """
 
 class NumberOfArticlesOutOfRangeError(Exception):
-    """Raised when total number of articles is out of range from 1 to 150"""
+    """
+    Raised when total number of articles is out of range from 1 to 150
+    """
 
 class IncorrectNumberOfArticlesError(Exception):
-    """Raised when total number of articles to parse is not integer or less than 0"""
+    """
+    Raised when total number of articles to parse is not integer or less than 0
+    """
 
 class IncorrectHeadersError(Exception):
-    """Raised when headers are not in a form of dictionary"""
+    """
+    Raised when headers are not in a form of dictionary
+    """
 
 class IncorrectEncodingError(Exception):
-    """Raied when encoding is not specified as a string"""
+    """
+    Raied when encoding is not specified as a string
+    """
 
 class IncorrectTimeoutError(Exception):
-    """Raised when timeout value is not a positive integer that less than 60"""
+    """
+    Raised when timeout value is not a positive integer that less than 60
+    """
 
 class IncorrectVerifyError(Exception):
-    """Raised when verify certificate and headless mode values are not True or False"""
+    """
+    Raised when verify certificate and headless mode values are not True or False
+    """
 
 
 class Config:
@@ -309,6 +323,47 @@ class CrawlerRecursive(Crawler):
         """
         Find number of article urls requested.
         """
+        seed_urls_max_size = 3
+        visited = set()
+        queue = set()
+
+        path = ASSETS_PATH / "RecursiveCrawlerState.json"
+        if path.exists():
+            with open(path, encoding="utf-8") as f:
+                current_state = json.load(f)
+            visited = set(current_state.get("visited", []))
+            queue = set(current_state.get("queue", []))
+        else:
+            queue = queue.union(set(self.get_search_urls()))
+
+        self.urls = list(visited.union(queue))
+
+        def _safe_current_state():
+            nonlocal visited
+            nonlocal queue
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({
+                    "visited": list(visited),
+                    "queue": list(queue)
+                     },
+                     f
+                )
+
+        while queue:
+            if len(self.urls) > self._config.get_num_articles():
+                break
+            self._config._seed_urls = [queue.pop() for _ in range(seed_urls_max_size) if queue]
+            super().find_articles()
+            visited = visited.union(self.get_search_urls())
+            queue = queue.union(set([url for url in self.urls if url not in visited]))
+            _safe_current_state()
+
+        _safe_current_state()
+
+    def find_articles_b(self) -> None:
+        """
+        Find number of article urls requested.
+        """
         checkpoint_size = 2
         queue = []
         visited = set()
@@ -378,7 +433,7 @@ class CrawlerRecursive(Crawler):
 
                 if extracted_url not in visited:
                     visited.add(extracted_url)
-            queue.pop(seed_url)
+            queue.remove(seed_url)
 
         _safe_current_state()
         self.find_articles()
@@ -539,6 +594,15 @@ def main() -> None:
     # soup = BeautifulSoup(response.text, features="lxml")
     # all_p = soup.find_all("p")
 
+def main2():
+    # prepare_environment(ASSETS_PATH)
+
+    config = Config(CRAWLER_CONFIG_PATH)
+    config._num_articles = 1500
+    crawler = CrawlerRecursive(config)
+    crawler.find_articles()
+    print(len(crawler.urls))
+
 
 if __name__ == "__main__":
-    main()
+    main2()
