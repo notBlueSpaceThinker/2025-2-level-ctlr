@@ -16,7 +16,7 @@ import requests
 from bs4 import BeautifulSoup, Tag
 
 from core_utils.article.article import Article
-from core_utils.article.io import to_raw, to_meta
+from core_utils.article.io import to_meta, to_raw
 from core_utils.config_dto import ConfigDTO
 from core_utils.constants import ASSETS_PATH, CRAWLER_CONFIG_PATH
 
@@ -99,29 +99,46 @@ class Config:
         config = self._config
 
         if not isinstance(config.seed_urls, list) or not config.seed_urls:
-            raise IncorrectSeedURLError("Seed URLs must be a list of strings")
+            raise IncorrectSeedURLError(
+                "Seed URLs must be a list of strings"
+            )
 
         for url in config.seed_urls:
             if not isinstance(url, str) or not re.match(r"https?://(www.)?", url):
-                raise IncorrectSeedURLError("Seed URL does not match standard pattern 'https?://(www.)?'")
+                raise IncorrectSeedURLError(
+                    "Seed URL does not match standard pattern 'https?://(www.)?'"
+                )
 
         if not isinstance(config.total_articles, int) or config.total_articles <= 0:
-            raise IncorrectNumberOfArticlesError("Total number of articles to parse is not integer or less than 0")
+            raise IncorrectNumberOfArticlesError(
+                "Total number of articles to parse is not integer or less than 0"
+            )
 
-        if not (1 <= config.total_articles <= 150):
-            raise NumberOfArticlesOutOfRangeError("Total number of articles is out of range from 1 to 150")
+        if config.total_articles < 1 or config.total_articles > 150:
+            raise NumberOfArticlesOutOfRangeError(
+                "Total number of articles is out of range from 1 to 150"
+            )
 
         if not isinstance(config.headers, dict):
-            raise IncorrectHeadersError("Headers are not in a form of dictionary")
+            raise IncorrectHeadersError(
+                "Headers are not in a form of dictionary"
+            )
 
         if not isinstance(config.encoding, str):
-            raise IncorrectEncodingError("Encoding is not specified as a string")
+            raise IncorrectEncodingError(
+                "Encoding is not specified as a string"
+            )
 
-        if not isinstance(config.timeout, int) or not (0 <= config.timeout < 60):
-            raise IncorrectTimeoutError("Timeout value is not a positive integer that less than 60")
+        if not isinstance(config.timeout, int) or config.timeout < 0 or config.timeout >= 60:
+            raise IncorrectTimeoutError(
+                "Timeout value is not a positive integer that less than 60"
+            )
 
-        if not isinstance(config.should_verify_certificate, bool) or not isinstance(config.headless_mode, bool):
-            raise IncorrectVerifyError("Verify certificate and headless mode values are not True or False")
+        if not isinstance(config.should_verify_certificate, bool) \
+        or not isinstance(config.headless_mode, bool):
+            raise IncorrectVerifyError(
+                "Verify certificate and headless mode values are not True or False"
+            )
 
 
     def get_seed_urls(self) -> list[str]:
@@ -186,6 +203,15 @@ class Config:
             bool: Whether to use headless mode or not
         """
         return self._headless_mode
+
+    def set_seed_urls(self, seed_urls) -> None:
+        """
+        Set seed urls to parse.
+
+        Args:
+            seed_urls (list[str]): New seed urls
+        """
+        self._seed_urls = seed_urls
 
 
 def make_request(url: str, config: Config) -> requests.models.Response:
@@ -256,11 +282,8 @@ class Crawler:
 
             soup = BeautifulSoup(response.text, features="lxml")
             parsed_seed = urlparse(seed_url)
-            tags = soup.find_all(["a"])
-            if not tags:
-                continue
 
-            for tag in tags:
+            for tag in soup.find_all(["a"]):
                 if len(self.urls) > self._config.get_num_articles():
                     return
 
@@ -308,15 +331,6 @@ class CrawlerRecursive(Crawler):
     Get one URL of the title page and find requested number of articles recursively.
     """
 
-    def __init__(self, config: Config) -> None:
-        """
-        Initialize an instance of the CrawlerRecursive class.
-
-        Args:
-            config (Config): Configuration
-        """
-        super().__init__(config)
-
     def find_articles(self) -> None:
         """
         Find number of article urls requested.
@@ -350,90 +364,90 @@ class CrawlerRecursive(Crawler):
         while queue:
             if len(self.urls) > self._config.get_num_articles():
                 break
-            self._config._seed_urls = [queue.pop() for _ in range(seed_urls_max_size) if queue]
+            self._config.set_seed_urls([queue.pop() for _ in range(seed_urls_max_size) if queue])
             super().find_articles()
             visited = visited.union(self.get_search_urls())
-            queue = queue.union(set([url for url in self.urls if url not in visited]))
+            queue = queue.union({url for url in self.urls if url not in visited})
             _safe_current_state()
 
         _safe_current_state()
 
-    def find_articles_b(self) -> None:
-        """
-        Find number of article urls requested.
-        """
-        checkpoint_size = 2
-        queue = []
-        visited = set()
-        path = ASSETS_PATH / "RecursiveCrawlerState.json"
-        if path.exists():
-            with open(path, encoding="utf-8") as f:
-                current_state = json.load(f)
-            visited = set(current_state["visited"])
-            self._config._seed_urls = current_state["queue"]
-            queue = current_state
-        else:
-            queue.extend(self.get_search_urls())
+    # def find_articles_b(self) -> None:
+    #     """
+    #     Find number of article urls requested.
+    #     """
+    #     checkpoint_size = 2
+    #     queue = []
+    #     visited = set()
+    #     path = ASSETS_PATH / "RecursiveCrawlerState.json"
+    #     if path.exists():
+    #         with open(path, encoding="utf-8") as f:
+    #             current_state = json.load(f)
+    #         visited = set(current_state["visited"])
+    #         self._config._seed_urls = current_state["queue"]
+    #         queue = current_state
+    #     else:
+    #         queue.extend(self.get_search_urls())
 
-        def _safe_current_state():
-            nonlocal visited
-            nonlocal queue
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump({
-                    "visited": list(visited),
-                    "queue": queue
-                     },
-                     f
-                )
+    #     def _safe_current_state():
+    #         nonlocal visited
+    #         nonlocal queue
+    #         with open(path, "w", encoding="utf-8") as f:
+    #             json.dump({
+    #                 "visited": list(visited),
+    #                 "queue": queue
+    #                  },
+    #                  f
+    #             )
 
-        for seed_url in self.get_search_urls():
-            try:
-                response = make_request(seed_url, self._config)
-            except requests.exceptions.RequestException:
-                continue
+    #     for seed_url in self.get_search_urls():
+    #         try:
+    #             response = make_request(seed_url, self._config)
+    #         except requests.exceptions.RequestException:
+    #             continue
 
-            if not response.ok:
-                continue
+    #         if not response.ok:
+    #             continue
 
-            soup = BeautifulSoup(response.text, features="lxml")
-            parsed_seed = urlparse(seed_url)
-            tags = soup.find_all(["a"])
-            if not tags:
-                continue
-            for tag in tags:
-                if len(visited) > self._config.get_num_articles():
-                    self.urls = list(visited)
-                    return
-                if len(visited) % checkpoint_size == 0:
-                    _safe_current_state()
+    #         soup = BeautifulSoup(response.text, features="lxml")
+    #         parsed_seed = urlparse(seed_url)
+    #         tags = soup.find_all(["a"])
+    #         if not tags:
+    #             continue
+    #         for tag in tags:
+    #             if len(visited) > self._config.get_num_articles():
+    #                 self.urls = list(visited)
+    #                 return
+    #             if len(visited) % checkpoint_size == 0:
+    #                 _safe_current_state()
 
-                if not isinstance(tag, Tag):
-                    continue
+    #             if not isinstance(tag, Tag):
+    #                 continue
 
-                extracted_url = self._extract_url(tag)
-                if not extracted_url:
-                    continue
+    #             extracted_url = self._extract_url(tag)
+    #             if not extracted_url:
+    #                 continue
 
-                if not re.match("https?://(www.)?", extracted_url):
-                    extracted_url = urlunparse(
-                        (
-                            parsed_seed.scheme,
-                            parsed_seed.netloc,
-                            extracted_url,
-                            None,
-                            None,
-                            None
-                        )
-                    )
-                elif parsed_seed.netloc != urlparse(extracted_url).netloc:
-                        continue
+    #             if not re.match("https?://(www.)?", extracted_url):
+    #                 extracted_url = urlunparse(
+    #                     (
+    #                         parsed_seed.scheme,
+    #                         parsed_seed.netloc,
+    #                         extracted_url,
+    #                         None,
+    #                         None,
+    #                         None
+    #                     )
+    #                 )
+    #             elif parsed_seed.netloc != urlparse(extracted_url).netloc:
+    #                 continue
 
-                if extracted_url not in visited:
-                    visited.add(extracted_url)
-            queue.remove(seed_url)
+    #             if extracted_url not in visited:
+    #                 visited.add(extracted_url)
+    #         queue.remove(seed_url)
 
-        _safe_current_state()
-        self.find_articles()
+    #     _safe_current_state()
+    #     self.find_articles()
 
 # 4, 6, 8, 10
 
@@ -466,7 +480,7 @@ class HTMLParser:
         """
         articles = article_soup.find_all("article", class_="type-post")
         if not articles:
-            return None
+            return
 
         all_text = []
         for article in articles:
@@ -491,7 +505,6 @@ class HTMLParser:
         Args:
             article_soup (bs4.BeautifulSoup): BeautifulSoup instance
         """
-        "id, title, author."
         self.article.article_id = self.article_id
 
         title = article_soup.find("title")
@@ -510,6 +523,8 @@ class HTMLParser:
         date = article_soup.find("meta", {"property": "article:published_time"})
         if isinstance(date, Tag) and (date_content := date.get("content")):
             self.article.date = self.unify_date_format(str(date_content))
+        else:
+            date = None
 
 
     def unify_date_format(self, date_str: str) -> datetime.datetime:
@@ -564,25 +579,29 @@ def main() -> None:
     prepare_environment(ASSETS_PATH)
 
     config = Config(CRAWLER_CONFIG_PATH)
-    crawler = CrawlerRecursive(config)
+    crawler = Crawler(config)
     crawler.find_articles()
-    for id, article_url in enumerate(crawler.urls):
-        parser = HTMLParser(article_url, id, config)
+    print(len(crawler.urls))
+    for article_id, article_url in enumerate(crawler.urls):
+        parser = HTMLParser(article_url, article_id, config)
         parsed_article = parser.parse()
         if isinstance(parsed_article, Article):
             to_raw(parsed_article)
             to_meta(parsed_article)
 
 def main2():
+    """
+    Entrypoint for recursivescraper module.
+    """
     if not ASSETS_PATH.exists():
         prepare_environment(ASSETS_PATH)
 
     config = Config(CRAWLER_CONFIG_PATH)
-    config._num_articles = 1500
+    # config._num_articles = 1500
     crawler = CrawlerRecursive(config)
     crawler.find_articles()
     print(len(crawler.urls))
 
 
 if __name__ == "__main__":
-    main2()
+    main()
