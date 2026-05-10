@@ -524,7 +524,7 @@ class HTMLParser:
         if isinstance(date, Tag) and (date_content := date.get("content")):
             self.article.date = self.unify_date_format(str(date_content))
         else:
-            date = None
+            date = datetime.datetime.now()
 
 
     def unify_date_format(self, date_str: str) -> datetime.datetime:
@@ -582,7 +582,7 @@ def main() -> None:
     crawler = Crawler(config)
     crawler.find_articles()
     print(len(crawler.urls))
-    for article_id, article_url in enumerate(crawler.urls):
+    for article_id, article_url in enumerate(crawler.urls, start=1):
         parser = HTMLParser(article_url, article_id, config)
         parsed_article = parser.parse()
         if isinstance(parsed_article, Article):
