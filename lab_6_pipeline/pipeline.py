@@ -6,12 +6,13 @@ Pipeline for CONLL-U formatting.
 import json
 import pathlib
 import re
+from string import punctuation
 
 from networkx import DiGraph
 
 from core_utils.article.article import Article, get_article_id_from_filepath
 from core_utils.constants import ASSETS_PATH
-from core_utils.article.io import from_raw, from_meta
+from core_utils.article.io import from_raw, from_meta, to_cleaned
 from core_utils.pipeline import (
     AbstractCoNLLUAnalyzer,
     CoNLLUDocument,
@@ -45,7 +46,7 @@ class CorpusManager:
             path_to_raw_txt_data (pathlib.Path): Path to raw txt data
         """
         self.path_to_raw_txt_data = path_to_raw_txt_data
-        self._storage = {}
+        self._storage: dict[int, Article] = {}
         self._validate_dataset()
         self._scan_dataset()
 
@@ -116,7 +117,7 @@ class CorpusManager:
             self._storage[article_id] = from_raw(raw_file_path, self._storage[article_id])
 
 
-    def get_articles(self) -> dict:
+    def get_articles(self) -> dict[int, Article]:
         """
         Get storage params.
 
@@ -141,11 +142,15 @@ class TextProcessingPipeline(PipelineProtocol):
             corpus_manager (CorpusManager): CorpusManager instance
             analyzer (LibraryWrapper | None, optional): Analyzer instance. Defaults to None.
         """
+        self.corpus_manager = corpus_manager
+        self.analyzer = analyzer
 
     def run(self) -> None:
         """
         Perform basic preprocessing and write processed text to files.
         """
+        for article in self.corpus_manager.get_articles().values():
+            to_cleaned(article)
 
 
 class UDPipeAnalyzer(LibraryWrapper):
@@ -304,10 +309,10 @@ def main() -> None:
     """
     Entrypoint for pipeline module.
     """
-    CorpusManager(ASSETS_PATH)
+    corpus_manager = CorpusManager(ASSETS_PATH)
+    pipeline = TextProcessingPipeline(corpus_manager, None)
+    pipeline.run()
 
 
 if __name__ == "__main__":
     main()
-    # pattern = r"\d*_raw\.txt|\d*_meta\.json"
-    # print(re.match(pattern,"1_22meta.json"))
