@@ -9,8 +9,9 @@ import re
 
 from networkx import DiGraph
 
-from core_utils.article.article import Article
+from core_utils.article.article import Article, get_article_id_from_filepath
 from core_utils.constants import ASSETS_PATH
+from core_utils.article.io import from_raw, from_meta
 from core_utils.pipeline import (
     AbstractCoNLLUAnalyzer,
     CoNLLUDocument,
@@ -46,6 +47,7 @@ class CorpusManager:
         self.path_to_raw_txt_data = path_to_raw_txt_data
         self._storage = {}
         self._validate_dataset()
+        self._scan_dataset()
 
     def _validate_dataset(self) -> None:
         """
@@ -62,11 +64,11 @@ class CorpusManager:
             )
 
         found_files: dict[str, list] = {}
-        for f in self.path_to_raw_txt_data.iterdir():
-            file_name = f.name
+        for file_path in self.path_to_raw_txt_data.iterdir():
+            file_name = file_path.name
 
             if re.match(r"\d*_raw\.txt|\d*_meta\.json", file_name):
-                if not f.stat().st_size:
+                if not file_path.stat().st_size:
                     raise InconsistentDatasetError(
                         f"File is empty: {file_name}"
                     )
@@ -106,6 +108,13 @@ class CorpusManager:
         """
         Register each dataset entry.
         """
+        for meta_file_path in self.path_to_raw_txt_data.glob("*_meta.json"):
+            article_id = get_article_id_from_filepath(meta_file_path)
+            self._storage[article_id] = from_meta(meta_file_path, Article(None, article_id))
+        for raw_file_path in self.path_to_raw_txt_data.glob("*_raw.txt"):
+            article_id = get_article_id_from_filepath(raw_file_path)
+            self._storage[article_id] = from_raw(raw_file_path, self._storage[article_id])
+
 
     def get_articles(self) -> dict:
         """
@@ -114,6 +123,7 @@ class CorpusManager:
         Returns:
             dict: Storage params
         """
+        return self._storage
 
 
 class TextProcessingPipeline(PipelineProtocol):
