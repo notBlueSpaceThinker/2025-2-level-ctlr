@@ -5,10 +5,12 @@ Pipeline for CONLL-U formatting.
 # pylint: disable=too-few-public-methods, unused-import, undefined-variable, too-many-nested-blocks
 import json
 import pathlib
+import re
 
 from networkx import DiGraph
 
 from core_utils.article.article import Article
+from core_utils.constants import ASSETS_PATH
 from core_utils.pipeline import (
     AbstractCoNLLUAnalyzer,
     CoNLLUDocument,
@@ -18,6 +20,16 @@ from core_utils.pipeline import (
     UnifiedCoNLLUDocument,
 )
 
+class InconsistentDatasetError(Exception):
+    """
+    Raised when IDs contain slips,
+    number of meta and raw files is not equal,
+    files are empty.
+    """
+class EmptyDirectoryError(Exception):
+    """
+    Raised when directory is empty.
+    """
 
 class CorpusManager:
     """
@@ -31,11 +43,64 @@ class CorpusManager:
         Args:
             path_to_raw_txt_data (pathlib.Path): Path to raw txt data
         """
+        self.path_to_raw_txt_data = path_to_raw_txt_data
+        self._storage = {}
+        self._validate_dataset()
 
     def _validate_dataset(self) -> None:
         """
         Validate folder with assets.
         """
+        if not self.path_to_raw_txt_data.exists():
+            raise FileNotFoundError(
+                "File does not exist"
+            )
+
+        if not self.path_to_raw_txt_data.is_dir():
+            raise NotADirectoryError(
+                "Path does not lead to directory"
+            )
+
+        found_files: dict[str, list] = {}
+        for f in self.path_to_raw_txt_data.iterdir():
+            file_name = f.name
+
+            if re.match(r"\d*_raw\.txt|\d*_meta\.json", file_name):
+                if not f.stat().st_size:
+                    raise InconsistentDatasetError(
+                        f"File is empty: {file_name}"
+                    )
+                id, file_type = file_name.split("_")
+                found_files.setdefault(file_type, []).append(int(id))
+
+        if not found_files:
+            raise EmptyDirectoryError(
+                "Directory is empty"
+            )
+
+        raw_ids = found_files.get("raw.txt")
+        meta_ids = found_files.get("meta.json")
+        if not raw_ids:
+            raise InconsistentDatasetError(
+                "Dataset contains no raw files"
+            )
+        if not meta_ids:
+            raise InconsistentDatasetError(
+                "Dataset contains no meta files"
+            )
+        if len(meta_ids) != len(raw_ids):
+            raise InconsistentDatasetError(
+                "Number of meta and raw files is not equal"
+            )
+        if len(raw_ids) != sorted(raw_ids)[-1]:
+            raise InconsistentDatasetError(
+                "Raw file IDs contain slips"
+            )
+        if len(meta_ids) != sorted(meta_ids)[-1]:
+            raise InconsistentDatasetError(
+                "Meta file IDs contain slips"
+            )
+
 
     def _scan_dataset(self) -> None:
         """
@@ -229,7 +294,10 @@ def main() -> None:
     """
     Entrypoint for pipeline module.
     """
+    CorpusManager(ASSETS_PATH)
 
 
 if __name__ == "__main__":
     main()
+    # pattern = r"\d*_raw\.txt|\d*_meta\.json"
+    # print(re.match(pattern,"1_22meta.json"))
