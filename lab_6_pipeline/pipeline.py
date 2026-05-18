@@ -21,8 +21,9 @@ from core_utils.article.article import (
     get_article_id_from_filepath,
     split_by_sentence,
 )
-from core_utils.article.io import from_meta, from_raw, to_cleaned
+from core_utils.article.io import from_meta, from_raw, to_cleaned, to_meta
 from core_utils.constants import ASSETS_PATH, PROJECT_ROOT
+from core_utils.visualizer import visualize
 from core_utils.pipeline import (
     LibraryWrapper,
     PipelineProtocol,
@@ -298,11 +299,24 @@ class POSFrequencyPipeline:
         Returns:
             dict[str, int]: POS frequencies
         """
+        frequencies = {}
+        doc = self._analyzer.from_conllu(article)
+        for token in doc:
+            frequencies[token.pos_] = frequencies.get(token.pos_, 0) + 1
+        return frequencies
+
 
     def run(self) -> None:
         """
         Visualize the frequencies of each part of speech.
         """
+        for article in self.corpus_manager.get_articles().values():
+            pos_frequencies = self._count_frequencies(article)
+            article_meta = from_meta(article.get_meta_file_path())
+            article_meta.set_pos_info(pos_frequencies)
+            to_meta(article_meta)
+            visualize(article_meta, ASSETS_PATH / f"{article.article_id}_image.png")
+
 
 
 class PatternSearchPipeline(PipelineProtocol):
@@ -367,35 +381,20 @@ def main() -> None:
     """
     Entrypoint for pipeline module.
     """
-    test_texts = [
-        "Красивая - мама красиво, училась в ПДД и ЖКУ по адресу Львовская 10 лет с почтой test . ",
-        "Я сегодня шла за картошкой в огород.",
-        "Ой, упала, вот это поворот!",
-        "Замарала пяточку, все лицо в навозе.",
-        "Ещё не успела носиком по травке поелозить."
-    ]
+    # test_texts = [
+    #     "Красивая - мама красиво, училась в ПДД и ЖКУ по адресу Львовская 10 лет с почтой test . ",
+    #     "Я сегодня шла за картошкой в огород.",
+    #     "Ой, упала, вот это поворот!",
+    #     "Замарала пяточку, все лицо в навозе.",
+    #     "Ещё не успела носиком по травке поелозить."
+    # ]
 
     corpus_manager = CorpusManager(ASSETS_PATH)
     udpipe_analyzer = UDPipeAnalyzer()
-    # import pprint
-    # pprint.pprint(udpipe_analyzer.analyze(test_texts))
     pipeline = TextProcessingPipeline(corpus_manager, udpipe_analyzer)
-    # l = udpipe_analyzer.analyze(test_texts)
-    # pipeline.run()
-
-    # from pprint import pprint
-    # for sent in l:
-    #     pprint(sent)
-    #     print()
-
-
-    path = r"C:\Users\artem\hse\2025-2-level-ctlr\tmp\articles\1_udpipe.conllu"
-    # path = r"C:\Users\artem\hse\2025-2-level-ctlr\lab_6_pipeline\tests\test_files\reference_udpipe_test.conllu"
-    article = Article(None, 2)
-    doc = udpipe_analyzer.from_conllu(article)
-
-    print("ok")
-
+    pipeline.run()
+    pos_pipeline = POSFrequencyPipeline(corpus_manager, udpipe_analyzer)
+    pos_pipeline.run()
 
 
 if __name__ == "__main__":
