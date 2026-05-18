@@ -10,10 +10,10 @@ from typing import cast
 
 import spacy_udpipe
 from networkx import DiGraph
-from spacy_conll import init_parser
-from spacy_conll.parser import ConllParser
 from spacy.language import Language
 from spacy.tokens import Doc
+from spacy_conll import init_parser
+from spacy_conll.parser import ConllParser
 
 from core_utils.article.article import (
     Article,
@@ -23,12 +23,12 @@ from core_utils.article.article import (
 )
 from core_utils.article.io import from_meta, from_raw, to_cleaned, to_meta
 from core_utils.constants import ASSETS_PATH, PROJECT_ROOT
-from core_utils.visualizer import visualize
 from core_utils.pipeline import (
     LibraryWrapper,
     PipelineProtocol,
     TreeNode,
 )
+from core_utils.visualizer import visualize
 
 # logger = get_child_logger(__file__)
 MODEL_PATH = PROJECT_ROOT / "lab_6_pipeline" / "assets" / "model"
@@ -45,7 +45,10 @@ class EmptyDirectoryError(Exception):
     Raised when directory is empty.
     """
 class EmptyFileError(Exception):
-    pass
+    """
+    Raised when file is empty
+    """
+
 
 class CorpusManager:
     """
@@ -87,8 +90,8 @@ class CorpusManager:
                     raise InconsistentDatasetError(
                         f"File is empty: {file_name}"
                     )
-                id, file_type = file_name.split("_")
-                found_files.setdefault(file_type, []).append(int(id))
+                file_id, file_type = file_name.split("_")
+                found_files.setdefault(file_type, []).append(int(file_id))
 
         if not found_files:
             raise EmptyDirectoryError(
@@ -169,7 +172,9 @@ class TextProcessingPipeline(PipelineProtocol):
             if self._analyzer:
                 conllu_formatted = self._analyzer.analyze([article.get_raw_text()])
                 if conllu_formatted:
-                    article.set_conllu_info("\n".join([conllu_text for conllu_text in conllu_formatted]))
+                    article.set_conllu_info(
+                        "\n".join(conllu_text for conllu_text in conllu_formatted)
+                    )
                 self._analyzer.to_conllu(article)
 
 class UDPipeAnalyzer(LibraryWrapper):
@@ -266,9 +271,12 @@ class UDPipeAnalyzer(LibraryWrapper):
         Returns:
             Doc: Document ready for parsing
         """
-        return self._parser.parse_conll_file_as_spacy(
-            article.get_file_path(ArtifactType.UDPIPE_CONLLU), input_encoding=("utf-8")
-        )
+        article_path = article.get_file_path(ArtifactType.UDPIPE_CONLLU)
+        if article_path.stat().st_size == 0:
+            raise EmptyFileError(f"{article.article_id} conllu is empty")
+        return cast(Doc, self._parser.parse_conll_file_as_spacy(
+            article_path, input_encoding=("utf-8")
+        ))
 
 
 
@@ -382,7 +390,8 @@ def main() -> None:
     Entrypoint for pipeline module.
     """
     # test_texts = [
-    #     "Красивая - мама красиво, училась в ПДД и ЖКУ по адресу Львовская 10 лет с почтой test . ",
+    #     "Красивая - мама красиво, \
+    #      училась в ПДД и ЖКУ по адресу Львовская 10 лет с почтой test . ",
     #     "Я сегодня шла за картошкой в огород.",
     #     "Ой, упала, вот это поворот!",
     #     "Замарала пяточку, все лицо в навозе.",
