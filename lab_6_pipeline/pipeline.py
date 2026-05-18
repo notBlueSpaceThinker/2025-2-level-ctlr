@@ -86,7 +86,10 @@ class CorpusManager:
         for file_path in self.path_to_raw_txt_data.iterdir():
             file_name = file_path.name
 
-            if re.match(r"\d*_raw\.txt|\d*_meta\.json", file_name):
+            if re.match(
+                r"\d*_raw\.txt|\d*_meta\.json|\d*_cleaned.txt|\d*_udpipe.conllu|d*_image.png",
+                file_name
+                ):
                 if not file_path.stat().st_size:
                     raise InconsistentDatasetError(
                         f"File is empty: {file_name}"
