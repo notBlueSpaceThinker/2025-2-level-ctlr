@@ -1,0 +1,9 @@
+{
+    "seed_urls": ["https://tagankateatr.ru"],
+    "headers": {"user-agent": "Mozilla/5.0"},
+    "total_articles_to_find_and_parse": 150,
+    "encoding": "utf-8",
+    "timeout": 30,
+    "should_verify_certificate": true,
+    "headless_mode": false
+}
